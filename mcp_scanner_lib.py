@@ -11,12 +11,19 @@ Repository: https://github.com/fr0gger/proximity
 
 import asyncio
 import json
+import os
 import sys
 import requests
 import urllib3
 from datetime import datetime
 from typing import List, Optional
 from urllib.parse import urlparse
+
+try:
+    from dotenv import dotenv_values
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
 
 __version__ = "1.0.0"
 __author__ = "Thomas Roccia (@fr0gger_)"
@@ -178,13 +185,25 @@ class MCPScanner:
     async def _connect_stdio(self, command: str):
         """Connect using stdio transport."""
         self.log(f"Connecting via stdio: {command}")
-        
+
         parts = command.split()
         cmd = parts[0]
         args = parts[1:] if len(parts) > 1 else []
-        
-        server_params = StdioServerParameters(command=cmd, args=args)
-        
+
+        # Load environment from .env file only
+        env = None
+        if DOTENV_AVAILABLE:
+            env_dict = dotenv_values(".env")
+            if env_dict:
+                env = env_dict
+                self.log(f"Loaded {len(env)} environment variables from .env")
+            else:
+                self.log("No .env file found or .env is empty")
+        else:
+            self.log("dotenv not available, install with: pip install python-dotenv")
+
+        server_params = StdioServerParameters(command=cmd, args=args, env=env)
+
         try:
             async with stdio_client(server_params) as (read_stream, write_stream):
                 await self._run_session(read_stream, write_stream)
